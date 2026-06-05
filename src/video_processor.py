@@ -29,7 +29,7 @@ def process_video(input_path: str, output_dir: str):
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
     # Initialize VideoWriter for mp4 output
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')
     out_video = cv2.VideoWriter(video_out_path, fourcc, fps, (width, height))
     
     detector = BirdDetector()

@@ -22,8 +22,8 @@ class BirdDetector:
         Returns:
             A list of detection dictionaries containing bbox, track_id, and class.
         """
-        # Run tracking using ByteTrack. persist=True tells it to keep track IDs across frames.
-        # classes=[self.bird_class_id] filters for only birds.
+        # Run tracking using Bot-SORT. persist=True tells it to keep track IDs across frames.
+        # classes=[self.bird_class_id] filters for only birds to prevent track ID explosion from background noise.
         # We lowered conf to 0.05, increased NMS IoU to 0.8 for overlapping flocks, and imgsz to 1920 to detect very small background birds.
         results = self.model.track(frame, persist=True, classes=[self.bird_class_id], tracker="botsort.yaml", verbose=False, conf=0.05, iou=0.8, imgsz=1920)
         
@@ -48,7 +48,10 @@ class BirdDetector:
                 track_id = int(boxes.id[i].item())
                 
             cls_id = int(boxes.cls[i].item())
-            class_name = "bird" if cls_id == self.bird_class_id else "non-bird"
+            
+            # Get specific class name from YOLO, and format our class label
+            yolo_class_name = self.model.names[cls_id]
+            class_name = "bird" if cls_id == self.bird_class_id else f"non-bird ({yolo_class_name})"
             
             detections.append({
                 "bbox": [round(x, 2) for x in xyxy],
