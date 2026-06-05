@@ -1,0 +1,6 @@
+services:
+  spoor-tracker:
+    build: .
+    volumes:
+      - ./input_videos:/app/input_videos
+      - ./output:/app/output
