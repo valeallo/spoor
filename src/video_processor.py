@@ -14,9 +14,15 @@ def process_video(input_path: str, output_dir: str):
         os.makedirs(output_dir)
         
     base_name = os.path.splitext(os.path.basename(input_path))[0]
+    if base_name.endswith("_processed"):
+        base_name = base_name[:-10]
+        
+    existing_jsonls = [f for f in os.listdir(output_dir) if f.endswith(".jsonl")]
+    run_number = len(existing_jsonls) + 1
+    
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    jsonl_path = os.path.join(output_dir, f"{base_name}_results_{timestamp_str}.jsonl")
-    video_out_path = os.path.join(output_dir, f"{base_name}_annotated_{timestamp_str}.mp4")
+    jsonl_path = os.path.join(output_dir, f"{run_number:02d}_{base_name}_results_{timestamp_str}.jsonl")
+    video_out_path = os.path.join(output_dir, f"{run_number:02d}_{base_name}_annotated_{timestamp_str}.mp4")
     
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
@@ -28,8 +34,8 @@ def process_video(input_path: str, output_dir: str):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    # Initialize VideoWriter for mp4 output
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')
+    # Initialize VideoWriter for mp4 output (native OS friendly)
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out_video = cv2.VideoWriter(video_out_path, fourcc, fps, (width, height))
     
     detector = BirdDetector()
@@ -78,15 +84,5 @@ def process_video(input_path: str, output_dir: str):
                 
     cap.release()
     out_video.release()
-    
-    # Rename the input file to prevent processing it again
-    dir_name = os.path.dirname(input_path)
-    ext = os.path.splitext(input_path)[1]
-    new_input_path = os.path.join(dir_name, f"{base_name}_processed{ext}")
-    try:
-        os.rename(input_path, new_input_path)
-        print(f"Renamed input video to {new_input_path}")
-    except Exception as e:
-        print(f"Failed to rename input video: {e}")
         
     print(f"Processing complete. Results saved to {output_dir}")
