@@ -1,11 +1,11 @@
 # Spoor Video Processing Prototype - Writeup
 
 ## How you thought about the problem
-Coming into this assignment, Machine Learning and Computer Vision were new domains for me. Rather than spending all my allotted time reading research papers and getting overwhelmed by theory, I took an agile, prototype-first approach. 
+Coming into this assignment, Machine Learning and Computer Vision were new for me. Rather than spending all my time reading research papers and getting overwhelmed by theory, I took an agile, hands-on approach. 
 
 I mentally divided the problem into vertical slices: first achieving basic object detection, then applying tracking, and finally wrapping it in a UI to verify the results. After finding some tutorials on the `ultralytics` package, I realized it provided a clean, well-documented abstraction layer for a beginner. I used an AI assistant as a pair-programmer and sounding board. 
 
-My philosophy was to establish a working baseline quickly. In a real-world job scenario, if tasked with an unfamiliar domain, I would build a quick proof-of-concept like this to understand the constraints, and then consult with internal ML domain experts to refine the architecture. Through this exercise, I learned that bird detection—especially flying flocks—has highly specific edge cases, which my initial naive approach uncovered.
+My philosophy was to establish a working baseline quickly. In a real-world job scenario, if tasked with an unfamiliar domain, I would try to get assistance from somebody that has more knowledge on the topic, at least for suggestions on the architecture. Through this exercise, I learned that bird detection—especially flying flocks—has highly specific edge cases, which my initial naive approach uncovered.
 
 ## The main components of your solution
 1. **Object Detection and Tracking**: I used **Ultralytics YOLOv8s** (small version for a good balance of speed and accuracy). It comes pre-trained on the COCO dataset, which includes "bird" as class `14`. Furthermore, Ultralytics provides a built-in BoT-SORT implementation, which simultaneously performs detection and assigns persistent track IDs. 
@@ -23,18 +23,15 @@ I intentionally left out implementing highly specialized tracking frameworks lik
 
 While my research showed this model was perfectly suited to solve the motion-blur/flying bird issue, it required migrating the entire project to the OpenMMLab (`mmyolo`) framework. Given the 3-5 hour time limit, I made the engineering decision that adopting a heavy, complex new framework was too risky. I opted to stay within the clean `ultralytics` pipeline and optimize my tracker parameters (switching to BoT-SORT) rather than over-engineering the underlying framework.
 
+ Slicing Aided Hyper Inference (SAHI): I actually implemented this on a separate branch since the implementation itself only took a bunch of minutes. It is significantly more efficient at detecting birds, it makes the duplicate detection problem even more evident. The reason I didnt push it in main is the awful amount of time it takes to process the video on my machine, for a demo for you it will be faster to run it in main. feel free to run the "sahi" branch if you want to see it in action or if you are confident it will run fast on your.
+
 ## What you would improve with more time
 1. **Specialized Weights:** The biggest bottleneck is the generic COCO dataset. With more time, I would fine-tune the YOLOv8 model on a specialized dataset for small flying objects (like FBD-SV-2024). 
 2. **Human-in-the-Loop Annotation:** I actually built a working prototype of a Human-in-the-Loop Annotation Studio directly into the Streamlit app. When the model misses a bird taking flight, the user can draw a box around it in the UI and save it. With more time, I would fully automate the MLOps pipeline so that saving an annotation automatically triggers a cloud GPU instance to fine-tune the model and push the new weights back to the edge device.
-3. **Slicing Aided Hyper Inference (SAHI):** Detecting tiny birds far away in a 4K/1080p sky is extremely difficult. If I had more time, I would integrate the SAHI library, which slices high-resolution video frames into smaller patches, runs detection on each patch, and merges the results. While this is computationally heavy and complex to integrate with video tracking (since trackers need consistent whole-frame IDs), it is the industry standard for drastically improving small object detection.
+
 
 ## How you would think about running something like this outside your local machine
-To deploy this in the real world (e.g., on a camera at an offshore wind farm), I would architect an **Edge-to-Cloud** system with a strong emphasis on local storage:
-
-1. **Hardware:** Deploy the containerized application on a ruggedized edge device with an embedded GPU (like an NVIDIA Jetson) mounted directly to the camera system. 
-2. **Event-Driven Processing:** Running heavy ML models 24/7 is computationally expensive. I would use a lightweight, traditional motion-detection algorithm (like OpenCV background subtraction). When motion is detected, it captures a video clip, saves it locally, and triggers the YOLO/BoT-SORT pipeline to process that specific clip.
-3. **Bandwidth Optimization & Cloud Syncing:** Wind farms have notoriously poor network connectivity. Instead of trying to stream heavy video to the cloud, the edge device would only transmit the lightweight JSONL structured data via an API to a centralized server.
-4. **Physical Data Retrieval:** Because raw data is fundamental for future ML training, I would ensure all original high-resolution videos are saved locally to external storage (like a ruggedized NAS). Since they cannot be efficiently sent over the network, this data would be physically retrieved by technicians during routine maintenance trips.
+To run this near cameras or on edge hardware, I'd keep the architecture simple. Instead of running on a laptop, you would install a small, rugged computer directly attached to the camera. It would run this exact Docker container and process the live video feed locally. Then, instead of trying to upload heavy video files over a potentially weak internet connection, the edge device would only send the lightweight JSONL text data back to the cloud. 
 
 ## How you used AI
 I used an LLM extensively as a pair-programmer and domain tutor. Since ML was new to me, the AI was crucial for bootstrapping the initial architecture and helping me debug obscure PyTorch and Docker environment errors. 
