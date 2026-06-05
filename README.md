@@ -10,24 +10,24 @@ A prototype for detecting and tracking birds in a video, producing structured JS
 
 1. Build the Docker image:
    ```bash
-   docker build -t spoor-tracker .
+   docker compose up --build
    ```
 
-2. Run the container, mounting the input video and output directories:
-   ```bash
-   # In PowerShell
-   docker run --rm -v ${PWD}/input_videos:/app/input_videos -v ${PWD}/output:/app/output spoor-tracker --input /app/input_videos/pigeon-6093.mp4 --output /app/output
+2. Open your web browser and navigate to:
+   ```
+   http://localhost:8501
    ```
 
-The script will process the video and place `results.jsonl` and `annotated_video.mp4` into the `output/` directory on your host machine.
+3. Use the sidebar to select a video from your local `input_videos/` folder and click "Run Tracker".
+4. Once complete, use the main area to select the generated JSONL file and view the analytics charts!
 
 ## Running Locally with `uv`
 
-If you have `uv` installed, you can run the project directly:
+If you have `uv` installed, you can run the UI directly:
 
 1. Install dependencies and run:
    ```bash
-   uv run python -m src.main --input input_videos/pigeon-6093.mp4 --output output
+   uv run streamlit run src/app.py
    ```
 
 ## Running Tests

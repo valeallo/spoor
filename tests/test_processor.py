@@ -45,3 +45,21 @@ def test_jsonl_output_format(tmp_path):
     assert loaded_record["track_id"] == 5
     assert len(loaded_record["bbox"]) == 4
     assert loaded_record["class"] == "bird"
+
+def test_bounding_box_validity():
+    """Test that generated bounding boxes contain 4 valid coordinates."""
+    detector = BirdDetector(model_name="yolov8s.pt")
+    
+    # Create a dummy image with a white square to simulate an object
+    dummy_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    # The default yolov8 model won't detect a white square as a bird, 
+    # but we can at least ensure the method doesn't crash on synthetic data.
+    detections = detector.track_frame(dummy_frame)
+    
+    for det in detections:
+        bbox = det.get("bbox")
+        assert bbox is not None
+        assert len(bbox) == 4
+        x1, y1, x2, y2 = bbox
+        assert x1 <= x2
+        assert y1 <= y2

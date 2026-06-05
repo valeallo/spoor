@@ -27,7 +27,10 @@ RUN uv sync
 # Define the volume for input and output
 VOLUME ["/app/input_videos", "/app/output"]
 
-# Set the default entrypoint
-ENTRYPOINT ["uv", "run", "python", "-m", "src.main"]
+# Expose the Streamlit port
+EXPOSE 8501
+
+# Set the default entrypoint to run the web UI
+ENTRYPOINT ["uv", "run", "streamlit", "run", "src/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
 # Default command args if none provided
-CMD ["--input", "/app/input_videos/pigeon-6093.mp4", "--output", "/app/output"]
+CMD []
