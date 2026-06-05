@@ -1,79 +1,99 @@
 from typing import Any, Dict, List
 import os
-from ultralytics import YOLO
+import torch
+import supervision as sv
+from sahi import AutoDetectionModel
+from sahi.predict import get_sliced_prediction
 
 class BirdDetector:
-    def __init__(self):
+    def __init__(self, model_name=None):
         """
-        Initializes the YOLOv8 model for bird detection.
-        Dynamically loads custom weights if available, otherwise falls back to base YOLOv8s.
+        Initializes the YOLOv8 model for bird detection using SAHI.
         """
-        # COCO dataset class ID for 'bird' is 14. Custom trained model has 'bird' as class 0.
         custom_weights = "runs/detect/custom_bird_model/weights/best.pt"
         if os.path.exists(custom_weights):
-            print(f"Loading custom fine-tuned weights from {custom_weights}...")
-            self.model = YOLO(custom_weights)
+            print(f"Loading custom fine-tuned weights from {custom_weights} via SAHI...")
+            model_path = custom_weights
             self.bird_class_id = 0
         else:
-            print("Loading base YOLOv8s weights...")
-            self.model = YOLO("yolov8s.pt")
+            print("Loading base YOLOv8s weights via SAHI...")
+            model_path = "yolov8s.pt"
             self.bird_class_id = 14
+
+        device = "cuda:0" if torch.cuda.is_available() else "cpu"
+
+        # Load the model via SAHI
+        self.detection_model = AutoDetectionModel.from_pretrained(
+            model_type="yolov8",
+            model_path=model_path,
+            confidence_threshold=0.15,
+            device=device
+        )
+        
+        # Initialize Supervision Tracker with a long memory to prevent duplication
+        self.tracker = sv.ByteTrack(lost_track_buffer=120)
 
     def track_frame(self, frame) -> List[Dict[str, Any]]:
         """
-        Runs object tracking on a single frame.
-        
-        Args:
-            frame: A numpy array representing the image (from cv2).
-            
-        Returns:
-            A list of detection dictionaries containing bbox, track_id, and class.
+        Runs sliced object tracking on a single frame.
         """
-        # Run tracking using custom Bot-SORT config.
-        # We use src/custom_tracker.yaml which increases track_buffer to 120.
-        # This prevents the tracker from "forgetting" a bird if it's blurry for a few frames,
-        # which stops it from re-detecting the same bird as a brand new ID.
-        # We also slightly raised conf to 0.15 to prevent noise from generating new IDs.
-        results = self.model.track(frame, persist=True, classes=[self.bird_class_id], tracker="src/custom_tracker.yaml", verbose=False, conf=0.15, iou=0.8, imgsz=1920)
+        # 1. Run SAHI sliced prediction
+        result = get_sliced_prediction(
+            frame,
+            self.detection_model,
+            slice_height=640,
+            slice_width=640,
+            overlap_height_ratio=0.2,
+            overlap_width_ratio=0.2,
+            verbose=False
+        )
         
-        detections = []
-        if not results or len(results) == 0:
-            return detections
+        # 2. Convert to Supervision format manually
+        import numpy as np
+        if len(result.object_prediction_list) == 0:
+            detections = sv.Detections.empty()
+        else:
+            xyxy = []
+            confidence = []
+            class_id = []
+            for pred in result.object_prediction_list:
+                xyxy.append([pred.bbox.minx, pred.bbox.miny, pred.bbox.maxx, pred.bbox.maxy])
+                confidence.append(pred.score.value)
+                class_id.append(pred.category.id)
             
-        result = results[0]
+            detections = sv.Detections(
+                xyxy=np.array(xyxy),
+                confidence=np.array(confidence),
+                class_id=np.array(class_id)
+            )
         
-        if result.boxes is None:
-            return detections
+        # 3. Filter for birds before passing to tracker
+        if len(detections) > 0:
+            detections = detections[detections.class_id == self.bird_class_id]
             
-        boxes = result.boxes
+        # 4. Update the tracker with detections
+        tracked_detections = self.tracker.update_with_detections(detections)
         
-        for i in range(len(boxes)):
-            # Bounding box in [x_min, y_min, x_max, y_max] format
-            xyxy = boxes.xyxy[i].tolist()
+        # 5. Format the output to match our JSONL schema
+        output = []
+        for i in range(len(tracked_detections)):
+            xyxy = tracked_detections.xyxy[i].tolist()
+            tracker_id = int(tracked_detections.tracker_id[i]) if tracked_detections.tracker_id is not None else None
+            cls_id = int(tracked_detections.class_id[i])
             
-            # If tracking ID is not assigned yet (e.g., very first frame or low confidence)
-            track_id = None
-            if boxes.id is not None:
-                track_id = int(boxes.id[i].item())
-                
-            cls_id = int(boxes.cls[i].item())
+            class_name = "bird" if cls_id == self.bird_class_id else "non-bird"
             
-            # Get specific class name from YOLO, and format our class label
-            yolo_class_name = self.model.names[cls_id]
-            class_name = "bird" if cls_id == self.bird_class_id else f"non-bird ({yolo_class_name})"
-            
-            detections.append({
+            output.append({
                 "bbox": [round(x, 2) for x in xyxy],
-                "track_id": track_id,
+                "track_id": tracker_id,
                 "class": class_name
             })
             
-        return detections
+        return output
     
     def annotate_frame(self, frame, results):
         """
         Helper to annotate the frame using Ultralytics built-in plotter if needed.
-        Currently not used directly, as we manually draw in video_processor for more control,
-        but available if we want YOLO's default styling.
+        Currently not used directly, as we manually draw in video_processor for more control.
         """
-        return results[0].plot() if results else frame
+        return frame

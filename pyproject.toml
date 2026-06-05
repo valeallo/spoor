@@ -11,6 +11,8 @@ dependencies = [
     "streamlit==1.35.0",
     "streamlit-drawable-canvas>=0.9.3",
     "pandas>=2.0.0",
+    "sahi>=0.11.14",
+    "supervision>=0.19.0",
 ]
 
 [dependency-groups]
