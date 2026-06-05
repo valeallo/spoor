@@ -25,7 +25,7 @@ class BirdDetector:
         # Run tracking using ByteTrack. persist=True tells it to keep track IDs across frames.
         # classes=[self.bird_class_id] filters for only birds.
         # We lowered conf to 0.05, increased NMS IoU to 0.8 for overlapping flocks, and imgsz to 1920 to detect very small background birds.
-        results = self.model.track(frame, persist=True, classes=[self.bird_class_id], tracker="bytetrack.yaml", verbose=False, conf=0.05, iou=0.8, imgsz=1920)
+        results = self.model.track(frame, persist=True, classes=[self.bird_class_id], tracker="botsort.yaml", verbose=False, conf=0.05, iou=0.8, imgsz=1920)
         
         detections = []
         if not results or len(results) == 0:
