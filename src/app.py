@@ -85,7 +85,18 @@ with tab1:
                 data.append(json.loads(line))
                 
         if not data:
-            st.warning("Selected JSONL file is empty.")
+            st.error("⚠️ This tracking run failed to complete or was aborted.")
+            st.write("The output files are empty. This usually happens if the processing encountered an error and crashed before writing the data.")
+            
+            if st.button("🗑️ Delete Corrupted Run Files"):
+                try:
+                    if os.path.exists(jsonl_path):
+                        os.remove(jsonl_path)
+                    if os.path.exists(video_path):
+                        os.remove(video_path)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Could not delete files: {e}")
         else:
             # Display the video
             if os.path.exists(video_path):

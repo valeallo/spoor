@@ -8,7 +8,7 @@ dependencies = [
     "ultralytics>=8.1.0",
     "opencv-python-headless>=4.8.0",
     "lapx>=0.5.5", # required by ultralytics for Bytrack/BoT-SORT
-    "streamlit>=1.30.0",
+    "streamlit==1.35.0",
     "streamlit-drawable-canvas>=0.9.3",
     "pandas>=2.0.0",
 ]
